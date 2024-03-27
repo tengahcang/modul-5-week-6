@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class EmployeeController extends Controller
@@ -14,7 +15,21 @@ class EmployeeController extends Controller
     {
         //
         $pageTitle = 'Employee List';
-        return view('employee.index',['pageTitle' => $pageTitle]);
+        // RAW SQL Query
+        // $employees = DB::select('select *, employees.id as employee_id, positions.name as position_name from employees left join positions on employees.position_id = positions.id');
+        // Query Builder
+        $employees = DB::table('employees')
+                        ->select('*', 'employees.id as employee_id', 'positions.name as position_name')
+                        ->leftJoin('positions','employees.position_id','=','positions.id')
+                        ->get();
+        // dd($employees);
+        return view('employee.index',[
+            'pageTitle' => $pageTitle,
+            'employees' => $employees
+        ]);
+
+
+        // return view('employee.index',['pageTitle' => $pageTitle]);
     }
 
     /**
@@ -24,7 +39,13 @@ class EmployeeController extends Controller
     {
         //
         $pageTitle = 'Create Employee';
-        return view('employee.create',compact('pageTitle'));
+        // RAW SQL Query
+        // $positions = DB::select('select * from positions');
+        // Query Builder
+        $positions = DB::table('positions')
+                        ->select('*')
+                        ->get();
+        return view('employee.create',compact('pageTitle', 'positions'));
     }
 
     /**
@@ -39,7 +60,7 @@ class EmployeeController extends Controller
             'numeric' => 'Isi :attribute dengan angka'
         ];
         $validator = Validator::make($request->all(),[
-            'firstName' => 'required|min|10',
+            'firstName' => 'required',
             'lastName' => 'required',
             'email' => 'required|email',
             'age' => 'required|numeric'
@@ -47,7 +68,14 @@ class EmployeeController extends Controller
         if ($validator->fails()){
             return redirect()->back()->withErrors($validator)->withInput();
         }
-        return $request->all();
+        DB::table('employees')->insert([
+            'firstname' => $request->firstName,
+            'lastname' => $request->lastName,
+            'email' => $request->email,
+            'age' => $request->age,
+            'position_id' => $request->position
+        ]);
+        return redirect()->route('employees.index');
     }
 
     /**
@@ -55,7 +83,15 @@ class EmployeeController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $pageTitle = 'Employee Detail';
+        // RAW SQL Query
+        // $employee = collect(DB::select('select *, employees.id as employee_id, positions.name as position_name from employees left join positions on employees.position_id = positions.id where employees.id = ?',[$id]))->first();
+        // Query Builder
+        $employee = DB::table('employees')
+                        ->select('*','employees.id as employee_id','positions.name as position_name')
+                        ->leftJoin('positions','employees.position_id','=','positions.id')
+                        ->where('employees.id','=',$id);
+        return view('employee.show', compact('pageTitle', 'employee'));
     }
 
     /**
@@ -80,5 +116,9 @@ class EmployeeController extends Controller
     public function destroy(string $id)
     {
         //
+        DB::table('employees')
+            ->where('id',$id)
+            ->delete();
+        return redirect()->route('employees.index');
     }
 }
